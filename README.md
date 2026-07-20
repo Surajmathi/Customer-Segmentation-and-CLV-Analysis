@@ -33,7 +33,7 @@ This project aims to analyze customer purchasing behavior using an e-commerce sa
 - Scikit-learn
 - Plotly
 - Streamlit
-- Jupyter Notebook
+- Visual Studio Code
 
 ## Repository Structure
 
