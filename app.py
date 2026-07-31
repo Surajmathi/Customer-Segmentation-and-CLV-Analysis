@@ -1,268 +1,144 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+from PIL import Image
+from utils import load_data
+from components import kpi_card
 
-# -----------------------------
-# Page Configuration
-# -----------------------------
+# -------------------------------------------------
+# PAGE CONFIG
+# -------------------------------------------------
 st.set_page_config(
-    page_title="Customer Intelligence Dashboard",
-    page_icon="🚀",
-    layout="wide"
+    page_title="Global Superstore Analytics",
+    page_icon="assets/logo.png" ,
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# -----------------------------
-# Custom CSS
-# -----------------------------
-st.markdown(
-    """
-    <style>
+# -------------------------------------------------
+# LOAD CSS
+# -------------------------------------------------
+with open("styles/style.css") as f:
+    st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 
-    .main {
-        background: linear-gradient(
-            135deg,
-            #f8fafc,
-            #e2e8f0
-        );
-    }
-
-    h1 {
-        color: #2563eb;
-        text-align: center;
-        font-size: 45px;
-    }
-
-    h2, h3 {
-        color: #1e293b;
-    }
-
-    .metric-card {
-        background: rgba(255,255,255,0.8);
-        padding: 20px;
-        border-radius: 20px;
-        text-align: center;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-    }
-
-    .metric-card h2 {
-        color: #2563eb;
-    }
-
-    .metric-card p {
-        color:#334155;
-        font-size:25px;
-        font-weight:bold;
-    }
-
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-
-# -----------------------------
-# Load Data
-# -----------------------------
-@st.cache_data
-def load_data():
-    return pd.read_csv(
-        "data/processed/customer_clv.csv"
-    )
-
-
+# -------------------------------------------------
+# LOAD DATA
+# -------------------------------------------------
 df = load_data()
 
+# -------------------------------------------------
+# SIDEBAR
+# -------------------------------------------------
+st.sidebar.title("📊 Navigation")
 
-# -----------------------------
-# Header
-# -----------------------------
-st.title("🚀 Customer Intelligence & CLV Dashboard")
+st.sidebar.markdown("---")
 
-st.markdown(
-    """
-    <h3 style='text-align:center;color:#94a3b8'>
-    AI-powered Customer Segmentation and Lifetime Value Analytics
-    </h3>
-    """,
-    unsafe_allow_html=True
-)
-
-
-st.divider()
-
-
-# -----------------------------
-# Sidebar
-# -----------------------------
-st.sidebar.title("🎯 Analytics Controls")
-
-
-cluster_filter = st.sidebar.multiselect(
-    "Select Customer Segments",
+cluster = st.sidebar.multiselect(
+    "Customer Cluster",
     sorted(df["Cluster"].unique()),
     default=sorted(df["Cluster"].unique())
 )
 
-
-value_filter = st.sidebar.multiselect(
-    "Customer Value Category",
-    df["Customer_Value"].unique(),
-    default=df["Customer_Value"].unique()
+customer_value = st.sidebar.multiselect(
+    "Customer Value",
+    sorted(df["Customer_Value"].unique()),
+    default=sorted(df["Customer_Value"].unique())
 )
 
+search = st.sidebar.text_input(
+    "Search Customer ID"
+)
 
-filtered_df = df[
-    (df["Cluster"].isin(cluster_filter))
-    &
-    (df["Customer_Value"].isin(value_filter))
+st.sidebar.markdown("---")
+st.sidebar.info(
+    "Executive Customer Intelligence Portal"
+)
+
+# -------------------------------------------------
+# FILTER DATA
+# -------------------------------------------------
+filtered = df[
+    (df["Cluster"].isin(cluster)) &
+    (df["Customer_Value"].isin(customer_value))
 ]
 
+if search:
+    filtered = filtered[
+        filtered["customer_id"]
+        .astype(str)
+        .str.contains(search)
+    ]
 
-# -----------------------------
-# KPI Cards
-# -----------------------------
+# -------------------------------------------------
+# HEADER
+# -------------------------------------------------
+banner = Image.open("assets/banner.png")
 
-c1,c2,c3 = st.columns(3)
+st.image(
+    banner,
+    use_container_width=True
+)
 
+st.markdown(
+    """
+<div class="dashboard-title">
+Global Superstore Analytics Dashboard
+</div>
+
+<div class="dashboard-subtitle">
+Executive Customer Intelligence Portal
+</div>
+""",
+    unsafe_allow_html=True
+)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# -------------------------------------------------
+# KPI VALUES
+# -------------------------------------------------
+
+total_customers = len(filtered)
+
+total_revenue = filtered["Monetary"].sum()
+
+average_clv = filtered["CLV"].mean()
+
+segments = filtered["Cluster"].nunique()
+
+# -------------------------------------------------
+# KPI ROW
+# -------------------------------------------------
+
+c1, c2, c3, c4 = st.columns(4)
 
 with c1:
-    st.markdown(
-        f"""
-        <div class='metric-card'>
-        <h2>👥 Customers</h2>
-        <p>{len(filtered_df):,}</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+    kpi_card(
+        "TOTAL CUSTOMERS",
+        f"{total_customers:,}"
     )
-
 
 with c2:
-    st.markdown(
-        f"""
-        <div class='metric-card'>
-        <h2>💰 Revenue</h2>
-        <p>${filtered_df['Monetary'].sum():,.0f}</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+    kpi_card(
+        "TOTAL REVENUE",
+        f"${total_revenue:,.0f}"
     )
-
 
 with c3:
-    st.markdown(
-        f"""
-        <div class='metric-card'>
-        <h2>💎 Avg CLV</h2>
-        <p>${filtered_df['CLV'].mean():,.0f}</p>
-        </div>
-        """,
-        unsafe_allow_html=True
+    kpi_card(
+        "AVERAGE CLV",
+        f"${average_clv:,.0f}"
     )
 
-
-st.divider()
-
-
-# -----------------------------
-# Charts
-# -----------------------------
-
-col1,col2 = st.columns(2)
-
-
-with col1:
-
-    st.subheader("🌌 Customer Segments")
-
-    fig = px.pie(
-        filtered_df,
-        names="Cluster",
-        title="Customer Distribution",
-        hole=0.45
+with c4:
+    kpi_card(
+        "CUSTOMER SEGMENTS",
+        segments
     )
 
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
+st.markdown("---")
 
+st.subheader("📈 Executive Dashboard")
 
-with col2:
-
-    st.subheader("💎 Customer Value")
-
-    fig = px.bar(
-        filtered_df["Customer_Value"]
-        .value_counts()
-        .reset_index(),
-        x="Customer_Value",
-        y="count",
-        title="Value Category Distribution"
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True
-    )
-
-
-# -----------------------------
-# CLV Analysis
-# -----------------------------
-
-st.subheader("📈 CLV Distribution")
-
-
-fig = px.histogram(
-    filtered_df,
-    x="CLV",
-    nbins=30,
-    title="Customer Lifetime Value Spread"
-)
-
-
-st.plotly_chart(
-    fig,
-    use_container_width=True
-)
-
-
-
-# -----------------------------
-# Top Customers
-# -----------------------------
-
-st.subheader("🏆 Premium Customers")
-
-
-top_customers = (
-    filtered_df
-    .sort_values(
-        "CLV",
-        ascending=False
-    )
-    .head(10)
-)
-
-
-st.dataframe(
-    top_customers,
-    use_container_width=True
-)
-
-
-# -----------------------------
-# Download
-# -----------------------------
-
-csv = filtered_df.to_csv(index=False)
-
-
-st.download_button(
-    "📥 Download Customer Report",
-    csv,
-    "customer_clv_report.csv",
-    "text/csv"
+st.info(
+    "Interactive business intelligence visualizations will appear below in the next step."
 )
